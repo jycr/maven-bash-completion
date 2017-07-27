@@ -1,3 +1,5 @@
+#!/bin/bash
+
 function_exists()
 {
 	declare -F $1 > /dev/null
@@ -139,6 +141,7 @@ _mvn()
     local plugin_goals_cargo="cargo:start|cargo:run|cargo:stop|cargo:deploy|cargo:undeploy|cargo:help"
     local plugin_goals_checkstyle="checkstyle:checkstyle|checkstyle:check"
     local plugin_goals_cobertura="cobertura:cobertura"
+    local plugin_goals_docker="docker:start|docker:stop|docker:build"
     local plugin_goals_findbugs="findbugs:findbugs|findbugs:gui|findbugs:help"
     local plugin_goals_dependency="dependency:analyze|dependency:analyze-dep-mgt|dependency:analyze-duplicate|dependency:analyze-only|dependency:analyze-report|dependency:build-classpath|dependency:copy|dependency:copy-dependencies|dependency:get|dependency:go-offline|dependency:help|dependency:list|dependency:list-repositories|dependency:properties|dependency:purge-local-repository|dependency:resolve|dependency:resolve-plugins|dependency:sources|dependency:tree|dependency:unpack|dependency:unpack-dependencies"
     local plugin_goals_deploy="deploy:deploy-file"
@@ -149,6 +152,7 @@ _mvn()
     local plugin_goals_exec="exec:exec|exec:java"
     local plugin_goals_failsafe="failsafe:integration-test|failsafe:verify"
     local plugin_goals_flyway="flyway:migrate|flyway:clean|flyway:info|flyway:validate|flyway:baseline|flyway:repair"
+    local plugin_goals_gitflow="gitflow:release"
     local plugin_goals_gpg="gpg:sign|gpg:sign-and-deploy-file"
     local plugin_goals_grails="grails:clean|grails:config-directories|grails:console|grails:create-controller|grails:create-domain-class|grails:create-integration-test|grails:create-pom|grails:create-script|grails:create-service|grails:create-tag-lib|grails:create-unit-test|grails:exec|grails:generate-all|grails:generate-controller|grails:generate-views|grails:help|grails:init|grails:init-plugin|grails:install-templates|grails:list-plugins|grails:maven-clean|grails:maven-compile|grails:maven-functional-test|grails:maven-grails-app-war|grails:maven-test|grails:maven-war|grails:package|grails:package-plugin|grails:run-app|grails:run-app-https|grails:run-war|grails:set-version|grails:test-app|grails:upgrade|grails:validate|grails:validate-plugin|grails:war"
     local plugin_goals_gwt="gwt:browser|gwt:clean|gwt:compile|gwt:compile-report|gwt:css|gwt:debug|gwt:eclipse|gwt:eclipseTest|gwt:generateAsync|gwt:help|gwt:i18n|gwt:mergewebxml|gwt:resources|gwt:run|gwt:run-codeserver|gwt:sdkInstall|gwt:source-jar|gwt:soyc|gwt:test"
@@ -189,17 +193,24 @@ _mvn()
     ## some plugin (like jboss-as) has '-' which is not allowed in shell var name, to use '_' then replace
     local common_plugins=`compgen -v | grep "^plugin_goals_.*" | sed 's/plugin_goals_//g' | tr '_' '-' | tr '\n' '|'`
 
-    local options="-Dmaven.test.skip=true|-DskipTests|-DskipITs|-Dtest|-Dit.test|-DfailIfNoTests|-Dmaven.surefire.debug|-DenableCiProfile|-Dpmd.skip=true|-Dcheckstyle.skip=true|-Dtycho.mode=maven|-Dmaven.javadoc.skip=true|-Dgwt.compiler.skip|-Dcobertura.skip=true|-Dfindbugs.skip=true||-DperformRelease=true|-Dgpg.skip=true|-DforkCount"
+    local options="-Dmaven.test.skip=true|-DskipTests|-DskipITs|-Dtest|-Dit.test|-DfailIfNoTests|-Dmaven.surefire.debug|-DenableCiProfile|-Dpmd.skip=true|-Dcheckstyle.skip=true|-Dtycho.mode=maven|-Dmaven.javadoc.skip=true|-Dgwt.compiler.skip|-Dcobertura.skip=true|-Dfindbugs.skip=true|-DperformRelease=true|-Dgpg.skip=true|-DforkCount|-Dgoal=|-Ddetail|-DignoreNonCompile=true|-Dliquibase.rollbackTag|-Dliquibase.rollbackCount|-Dliquibase.changesToApply|-Dliquibase.contexts="
 
     local profile_settings=`[ -e ~/.m2/settings.xml ] && grep -e "<profile>" -A 1 ~/.m2/settings.xml | grep -e "<id>.*</id>" | sed 's/.*<id>//' | sed 's/<\/id>.*//g' | tr '\n' '|' `
     
     local profiles="${profile_settings}|"
+    
+    ## manage path with space
+    SAVEIFS=$IFS
+    IFS=$(echo -en "\n\b")
+
     for item in ${POM_HIERARCHY[*]}
     do
-        local profile_pom=`[ -e $item ] && grep -e "<profile>" -A 1 $item | grep -e "<id>.*</id>" | sed 's/.*<id>//' | sed 's/<\/id>.*//g' | tr '\n' '|' `
+        local profile_pom=$([ -e "$item" ] && grep -e "<profile>" -A 1 "$item" | grep -e "<id>.*</id>" | sed 's/.*<id>//' | sed 's/<\/id>.*//g' | tr '\n' '|' )
         local profiles="${profiles}|${profile_pom}"
     done
 
+    IFS=$SAVEIFS
+    
     local IFS=$'|\n'
 
     if [[ ${cur} == -D* ]] ; then
